@@ -1,0 +1,21 @@
+{
+	"name": "obsidian-todo-harvest",
+	"version": "0.1.0",
+	"description": "Gather todos from your notes into a sidebar panel",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"link": "node scripts/link-to-vault.js",
+		"setup": "node scripts/setup.js"
+	},
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"builtin-modules": "^3.3.0",
+		"esbuild": "^0.21.0",
+		"obsidian": "latest",
+		"tslib": "2.6.0",
+		"typescript": "5.0.4"
+	}
+}

@@ -1,0 +1,10 @@
+{
+	"id": "todo-harvest",
+	"name": "Todo Harvest",
+	"version": "0.1.0",
+	"minAppVersion": "1.0.0",
+	"description": "Gather all todos from your notes into a sidebar panel. Tick, strike, and archive — synced back to the original file.",
+	"author": "vlwkaos",
+	"authorUrl": "",
+	"isDesktopOnly": false
+}
