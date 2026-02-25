@@ -17,20 +17,9 @@ export default class TodoHarvestPlugin extends Plugin {
 			name: 'Open sidebar',
 			callback: () => this.activateView(),
 		});
-
-		// Debounce vault changes so rapid edits don't thrash the view
-		let debounce: ReturnType<typeof setTimeout> | null = null;
-		const scheduleRefresh = () => {
-			if (debounce) clearTimeout(debounce);
-			debounce = setTimeout(() => this.refreshViews(), 800);
-		};
-		this.registerEvent(this.app.vault.on('modify', scheduleRefresh));
-		this.registerEvent(this.app.vault.on('create', scheduleRefresh));
-		this.registerEvent(this.app.vault.on('delete', scheduleRefresh));
-		this.registerEvent(this.app.vault.on('rename', scheduleRefresh));
 	}
 
-	async onunload(): Promise<void> {
+	onunload(): void {
 		this.app.workspace.detachLeavesOfType(TODO_VIEW_TYPE);
 	}
 
@@ -40,7 +29,9 @@ export default class TodoHarvestPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
-		this.refreshViews();
+		for (const leaf of this.app.workspace.getLeavesOfType(TODO_VIEW_TYPE)) {
+			if (leaf.view instanceof TodoView) leaf.view.refresh();
+		}
 	}
 
 	async activateView(): Promise<void> {
@@ -51,11 +42,5 @@ export default class TodoHarvestPlugin extends Plugin {
 			await leaf!.setViewState({ type: TODO_VIEW_TYPE, active: true });
 		}
 		workspace.revealLeaf(leaf!);
-	}
-
-	private refreshViews(): void {
-		for (const leaf of this.app.workspace.getLeavesOfType(TODO_VIEW_TYPE)) {
-			if (leaf.view instanceof TodoView) leaf.view.refresh();
-		}
 	}
 }

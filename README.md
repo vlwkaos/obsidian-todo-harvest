@@ -1,57 +1,61 @@
 # Todo Harvest
 
-Obsidian sidebar panel that collects all `[ ]` todos from your vault — built for journal-style note-taking where todos are scattered across daily notes.
+Note-context aware todo panel for Obsidian. Shows todos from the currently open note — updates automatically as you switch notes, like the backlinks pane.
+
+Built for journal-style note-taking where todos accumulate inline and you don't want to manage them separately.
 
 ## How it works
 
-Open the sidebar via the ribbon icon or command palette → **Todo Harvest: Open sidebar**.
+Open via the ribbon icon or **Todo Harvest: Open sidebar** command.
 
-Todos are grouped by note, similar to the backlinks / outgoing links pane. Notes are sorted newest first.
+The panel tracks the active note and displays its todos in three groups:
 
-- Notes with open todos are shown expanded
-- Notes with only done / struck todos are shown collapsed (limited to N notes)
-- Older done-only notes beyond the limit go into a collapsed **Archive** section
+- **Open** — unchecked todos in file order
+- **Done / Struck** — last N completed/struck items
+- **Archive** — older done/struck items beyond the limit, collapsed
+
+The panel syncs bidirectionally: tick in the panel → updates the file, tick in the editor → updates the panel.
 
 ## Actions
 
-**Checkbox** — tick or untick a todo. Updates the original file immediately.
+**Checkbox** — toggle `[ ]` / `[x]` directly in the source file.
 
-**Strikethrough button** (on open items) — strikes the whole line (`- ~~text~~`). Use this to dismiss a todo without marking it done. Appears on hover.
+**Click todo text** — open the note and scroll to that line.
 
-**Restore button** (on struck items) — removes the strikethrough, restores the line as open.
+**Strikethrough button** (hover, open items) — strikes the whole line as `- ~~text~~`. Use to dismiss without completing.
 
-**Arrow button** — opens the source note and scrolls to that line.
+**Restore button** (hover, struck items) — removes the strikethrough, restores as open.
+
+## Tags
+
+Tags (`#tag`) in todo text are shown as colored pills using the [colored-tags](https://github.com/pfayoux/obsidian-colored-tags) plugin palette if installed.
 
 ## Settings
 
 | Setting | Default | Description |
 |---|---|---|
-| Completed notes limit | `10` | Max notes with only done/struck todos shown before archiving |
-| Exclude folders | `templates` | Comma-separated folders to skip when scanning |
+| Completed item limit | `10` | Max done/struck items shown before archiving |
+| Exclude folders | `templates` | Comma-separated folder names to skip |
 
 ## Todo format
-
-The plugin reads standard markdown checkboxes:
 
 ```
 - [ ] open todo
 - [x] completed todo
-- [ ] tagged todo #project #work
+- [ ] buy groceries #shopping #errand
 ```
 
-Struck items are stored as:
+Struck items (stored in file as):
 
 ```
 - ~~original line~~
 ```
-
-Tags (`#tag`) found in the todo text are shown as chips in the panel.
 
 ## Development
 
 ```bash
 cd obsidian-todo-harvest
 npm install
-npm run dev          # watch mode
-npm run setup -- dgv3  # build + link to vault named "dgv3"
+npm run dev              # watch mode
+npm run setup -- dgv3   # build + link to vault
 ```
