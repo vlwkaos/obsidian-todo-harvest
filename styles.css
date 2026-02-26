@@ -102,6 +102,15 @@
 
 .th-item:hover { background: var(--background-secondary); }
 
+.th-priority {
+	flex-shrink: 0;
+	font-size: 0.7em;
+	font-weight: 700;
+	color: var(--color-red);
+	padding-top: 3px;
+	min-width: 14px;
+}
+
 .th-item-check {
 	flex-shrink: 0;
 	padding-top: 2px;
@@ -127,6 +136,22 @@
 }
 
 .th-item-text:hover { text-decoration: underline; }
+
+@keyframes th-flash {
+	0%   { background: var(--text-selection); }
+	60%  { background: var(--text-selection); }
+	100% { background: transparent; }
+}
+
+.cm-line.th-line-flash {
+	animation: th-flash 0.7s ease-out forwards;
+}
+
+/* MarkdownRenderer wraps output in <p> — flatten to inline */
+.th-item-text p {
+	margin: 0;
+	display: inline;
+}
 
 .th-item-done .th-item-text {
 	text-decoration: line-through;

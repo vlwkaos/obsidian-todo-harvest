@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, TFile, MarkdownView } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, TFile, MarkdownView, MarkdownRenderer } from 'obsidian';
 import { TODO_VIEW_TYPE, TodoItem } from './types';
 import { scanFile, updateTodoLine } from './scanner';
 import type TodoHarvestPlugin from './main';
@@ -18,17 +18,27 @@ export class TodoView extends ItemView {
 	getIcon(): string { return 'check-square'; }
 
 	async onOpen(): Promise<void> {
-		// Track active file changes — same pattern as backlinks pane
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', () => this.onActiveLeafChange()),
 		);
-		// metadataCache fires after Obsidian processes the file — reliable for live editor changes
 		this.registerEvent(
 			this.app.metadataCache.on('changed', (file) => {
 				if (!this.isUpdating && file === this.currentFile) this.refresh();
 			}),
 		);
-		await this.onActiveLeafChange();
+		// Wait for layout before resolving initial file
+		this.app.workspace.onLayoutReady(() => this.initCurrentFile());
+	}
+
+	private async initCurrentFile(): Promise<void> {
+		// Prefer the active markdown view; fall back to first open markdown leaf
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView)
+			?? (this.app.workspace.getLeavesOfType('markdown')[0]?.view as MarkdownView | undefined)
+			?? null;
+		const file = view?.file ?? null;
+		if (file === this.currentFile) return;
+		this.currentFile = file;
+		await this.refresh();
 	}
 
 	private async onActiveLeafChange(): Promise<void> {
@@ -74,7 +84,14 @@ export class TodoView extends ItemView {
 	private renderAll(root: HTMLElement, todos: TodoItem[]): void {
 		const limit = this.plugin.settings.completedLimit;
 
-		const open = todos.filter(t => t.status === 'open');
+		const open = todos
+			.filter(t => t.status === 'open')
+			.sort((a, b) => {
+				if (a.priority === null && b.priority === null) return 0;
+				if (a.priority === null) return 1;
+				if (b.priority === null) return -1;
+				return a.priority - b.priority;
+			});
 		const finished = todos.filter(t => t.status !== 'open');
 		const visible = finished.slice(0, limit);
 		const archive = finished.slice(limit);
@@ -131,15 +148,21 @@ export class TodoView extends ItemView {
 			});
 		}
 
+		if (item.priority !== null) {
+			const label = item.priority === Number.MAX_SAFE_INTEGER ? '!p' : `!p${item.priority}`;
+			row.createSpan({ cls: 'th-priority', text: label });
+		}
+
 		const mid = row.createDiv({ cls: 'th-item-body' });
 		const textEl = mid.createDiv({ cls: 'th-item-text' });
-		if (item.status === 'struck') {
-			textEl.createEl('s', { text: item.content });
-		} else {
-			textEl.setText(item.content);
-		}
-		// clicking the text navigates to the line
-		textEl.addEventListener('click', e => { e.stopPropagation(); this.navigateLine(item); });
+		const renderTarget = item.status === 'struck' ? textEl.createEl('s') : textEl;
+		MarkdownRenderer.render(this.app, item.content, renderTarget, item.filePath, this);
+		// clicking bare text navigates to the line; actual link clicks pass through
+		textEl.addEventListener('click', e => {
+			if ((e.target as HTMLElement).closest('a')) return;
+			e.stopPropagation();
+			this.navigateLine(item);
+		});
 
 		if (item.tags.length > 0) {
 			const tagRow = mid.createDiv({ cls: 'th-item-tags' });
@@ -203,10 +226,27 @@ export class TodoView extends ItemView {
 		if (!leaf) return;
 		await leaf.openFile(file);
 		const view = leaf.view as any;
-		if (view?.editor) {
-			const pos = { line: item.lineNumber, ch: 0 };
-			view.editor.setCursor(pos);
-			view.editor.scrollIntoView({ from: pos, to: pos }, true);
-		}
+		if (!view?.editor) return;
+
+		const { editor } = view;
+		const pos = { line: item.lineNumber, ch: 0 };
+		editor.setCursor(pos);
+		editor.scrollIntoView({ from: pos, to: pos }, true);
+
+		// Visual-only flash — wait for scroll + CM6 re-render to settle before animating
+		setTimeout(() => {
+			try {
+				const cm = editor.cm;
+				const lineInfo = cm.state.doc.line(item.lineNumber + 1); // CM6 is 1-indexed
+				let el: Element | null = cm.domAtPos(lineInfo.from).node as Element;
+				if (!(el instanceof Element)) el = (el as Node).parentElement;
+				while (el && !el.classList.contains('cm-line')) el = el.parentElement;
+				if (!el) return;
+				el.classList.remove('th-line-flash');
+				void (el as HTMLElement).offsetWidth; // force reflow to restart animation
+				el.classList.add('th-line-flash');
+				el.addEventListener('animationend', () => el?.classList.remove('th-line-flash'), { once: true });
+			} catch { /* editor not ready */ }
+		}, 200);
 	}
 }

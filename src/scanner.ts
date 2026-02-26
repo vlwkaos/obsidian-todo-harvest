@@ -8,17 +8,28 @@ const DONE_RE = /^(\s*[-*+] \[x\] )(.+)$/i;
 // - ~~content~~ (struck by this plugin)
 const STRUCK_RE = /^(\s*[-*+] )~~(.+)~~\s*$/;
 const TAG_RE = /#[\w/-]+/g;
+// !p or !p1 !p2 etc. — !p(\d*) not followed by another word char to avoid false matches
+const PRIORITY_RE = /!p(\d*)(?!\w)/;
 
-function parseLine(line: string): { status: 'open' | 'done' | 'struck'; content: string } | null {
+function parsePriority(content: string): { content: string; priority: number | null } {
+	const m = PRIORITY_RE.exec(content);
+	if (!m) return { content, priority: null };
+	const priority = m[1] ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; // bare !p sorts after !p1, !p2...
+	return { content: content.replace(m[0], '').trim(), priority };
+}
+
+function parseLine(line: string): { status: 'open' | 'done' | 'struck'; content: string; priority: number | null } | null {
 	let m = STRUCK_RE.exec(line);
 	if (m) {
-		const content = m[2].trim().replace(/^\[[ xX]\] /, '');
-		return { status: 'struck', content };
+		return { status: 'struck', content: m[2].trim().replace(/^\[[ xX]\] /, ''), priority: null };
 	}
 	m = DONE_RE.exec(line);
-	if (m) return { status: 'done', content: m[2].trim() };
+	if (m) return { status: 'done', content: m[2].trim(), priority: null };
 	m = OPEN_RE.exec(line);
-	if (m) return { status: 'open', content: m[2].trim() };
+	if (m) {
+		const { content, priority } = parsePriority(m[2].trim());
+		return { status: 'open', content, priority };
+	}
 	return null;
 }
 
@@ -39,6 +50,7 @@ export async function scanFile(app: App, file: TFile): Promise<TodoItem[]> {
 			content: parsed.content,
 			tags: parsed.content.match(TAG_RE) ?? [],
 			status: parsed.status,
+			priority: parsed.priority,
 			fileMtime: file.stat.mtime,
 		});
 	}
