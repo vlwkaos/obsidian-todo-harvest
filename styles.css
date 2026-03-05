@@ -160,6 +160,13 @@
 
 .th-item-struck .th-item-text { color: var(--text-faint); }
 
+.th-doneat {
+	font-size: 0.7em;
+	color: var(--text-faint);
+	display: block;
+	margin-top: 1px;
+}
+
 .th-item-tags {
 	display: flex;
 	flex-wrap: wrap;

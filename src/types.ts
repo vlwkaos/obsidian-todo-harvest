@@ -10,15 +10,14 @@ export interface TodoItem {
 	tags: string[];
 	status: 'open' | 'done' | 'struck';
 	priority: number | null; // null = none, MAX_SAFE_INTEGER = bare !, N = !N
+	doneAt: string | null;   // !doneat-YYYY-MM-DD or null
 	fileMtime: number;   // ms — used for recency sort
 }
 
 export interface TodoHarvestSettings {
-	completedLimit: number;
 	excludeFolders: string;  // comma-separated
 }
 
 export const DEFAULT_SETTINGS: TodoHarvestSettings = {
-	completedLimit: 10,
 	excludeFolders: 'templates',
 };

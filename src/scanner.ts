@@ -10,6 +10,7 @@ const STRUCK_RE = /^(\s*[-*+] )~~(.+)~~\s*$/;
 const TAG_RE = /#[\w/-]+/g;
 // !p or !p1 !p2 etc. — !p(\d*) not followed by another word char to avoid false matches
 const PRIORITY_RE = /!p(\d*)(?!\w)/;
+const DONEAT_RE = /!doneat-(\d{4}-\d{2}-\d{2})(?!\w)/;
 
 function parsePriority(content: string): { content: string; priority: number | null } {
 	const m = PRIORITY_RE.exec(content);
@@ -18,17 +19,29 @@ function parsePriority(content: string): { content: string; priority: number | n
 	return { content: content.replace(m[0], '').trim(), priority };
 }
 
-function parseLine(line: string): { status: 'open' | 'done' | 'struck'; content: string; priority: number | null } | null {
+function parseDoneAt(content: string): { content: string; doneAt: string | null } {
+	const m = DONEAT_RE.exec(content);
+	if (!m) return { content, doneAt: null };
+	return { content: content.replace(m[0], '').trim(), doneAt: m[1] };
+}
+
+function parseLine(line: string): { status: 'open' | 'done' | 'struck'; content: string; priority: number | null; doneAt: string | null } | null {
 	let m = STRUCK_RE.exec(line);
 	if (m) {
-		return { status: 'struck', content: m[2].trim().replace(/^\[[ xX]\] /, ''), priority: null };
+		const raw = m[2].trim().replace(/^\[[ xX]\] /, '');
+		const { content, doneAt } = parseDoneAt(raw);
+		return { status: 'struck', content, priority: null, doneAt };
 	}
 	m = DONE_RE.exec(line);
-	if (m) return { status: 'done', content: m[2].trim(), priority: null };
+	if (m) {
+		const { content: c1, doneAt } = parseDoneAt(m[2].trim());
+		const { content, priority } = parsePriority(c1);
+		return { status: 'done', content, priority, doneAt };
+	}
 	m = OPEN_RE.exec(line);
 	if (m) {
 		const { content, priority } = parsePriority(m[2].trim());
-		return { status: 'open', content, priority };
+		return { status: 'open', content, priority, doneAt: null };
 	}
 	return null;
 }
@@ -51,6 +64,7 @@ export async function scanFile(app: App, file: TFile): Promise<TodoItem[]> {
 			tags: parsed.content.match(TAG_RE) ?? [],
 			status: parsed.status,
 			priority: parsed.priority,
+			doneAt: parsed.doneAt,
 			fileMtime: file.stat.mtime,
 		});
 	}
@@ -75,9 +89,12 @@ export async function updateTodoLine(
 
 	const line = lines[idx];
 	let newLine: string;
+	const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
 	if (newStatus === 'done') {
 		newLine = line.replace(/\[ \]/, '[x]');
+		// ! append !doneat only if not already present
+		if (!DONEAT_RE.test(newLine)) newLine = newLine.trimEnd() + ` !doneat-${today}`;
 	} else if (newStatus === 'open') {
 		if (item.status === 'done') {
 			newLine = line.replace(/\[x\]/i, '[ ]');
@@ -86,9 +103,17 @@ export async function updateTodoLine(
 		} else {
 			newLine = line;
 		}
+		// ! strip !doneat when reopening
+		newLine = newLine.replace(/\s*!doneat-\d{4}-\d{2}-\d{2}/, '');
 	} else {
 		const m = /^(\s*[-*+] )(.+)$/.exec(line);
-		newLine = m ? `${m[1]}~~${m[2]}~~` : line;
+		if (m) {
+			// ! doneat goes inside ~~ so parseLine can extract it
+			const inner = DONEAT_RE.test(m[2]) ? m[2] : `${m[2].trimEnd()} !doneat-${today}`;
+			newLine = `${m[1]}~~${inner}~~`;
+		} else {
+			newLine = line;
+		}
 	}
 
 	lines[idx] = newLine;

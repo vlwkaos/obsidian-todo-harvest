@@ -82,8 +82,6 @@ export class TodoView extends ItemView {
 	}
 
 	private renderAll(root: HTMLElement, todos: TodoItem[]): void {
-		const limit = this.plugin.settings.completedLimit;
-
 		const open = todos
 			.filter(t => t.status === 'open')
 			.sort((a, b) => {
@@ -92,20 +90,18 @@ export class TodoView extends ItemView {
 				if (b.priority === null) return -1;
 				return a.priority - b.priority;
 			});
-		const finished = todos.filter(t => t.status !== 'open');
-		const visible = finished.slice(0, limit);
-		const archive = finished.slice(limit);
+		const finished = todos
+			.filter(t => t.status !== 'open')
+			.sort((a, b) => {
+				// ! doneAt descending (recent first), nulls last
+				if (a.doneAt && b.doneAt) return b.doneAt.localeCompare(a.doneAt);
+				if (a.doneAt) return -1;
+				if (b.doneAt) return 1;
+				return 0;
+			});
 
 		this.renderGroup(root, `Open (${open.length})`, open, false);
-
-		const finCount = finished.length > limit
-			? `${visible.length} of ${finished.length}`
-			: `${finished.length}`;
-		this.renderGroup(root, `Done / Struck (${finCount})`, visible, false);
-
-		if (archive.length > 0) {
-			this.renderGroup(root, `Archive (${archive.length})`, archive, true);
-		}
+		this.renderGroup(root, `Done (${finished.length})`, finished, false);
 	}
 
 	private renderGroup(root: HTMLElement, title: string, items: TodoItem[], collapsed: boolean): void {
@@ -163,6 +159,10 @@ export class TodoView extends ItemView {
 			e.stopPropagation();
 			this.navigateLine(item);
 		});
+
+		if (item.doneAt) {
+			mid.createSpan({ cls: 'th-doneat', text: item.doneAt });
+		}
 
 		if (item.tags.length > 0) {
 			const tagRow = mid.createDiv({ cls: 'th-item-tags' });
